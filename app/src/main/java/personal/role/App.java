@@ -118,9 +118,9 @@ public class App implements Serializable {
         api.addSlashCommandCreateListener(event -> {
             SlashCommandInteraction interaction = event.getSlashCommandInteraction();
             InteractionOriginalResponseUpdater response = interaction.respondLater(true).join();
+            CustomServer server = getServer(interaction.getServer().get().getIdAsString());
             switch (interaction.getCommandName()) {
                 case "setrole" :
-                    CustomServer server = getServer(interaction.getServer().get().getIdAsString());
                     if (!interaction.getUser().getRoles(interaction.getServer().get()).contains(interaction.getServer().get().getRoleById(server.getRequiredRoleId()).get())) {
                         response.setContent("You do not have the required role to use this command!").setFlags(MessageFlag.EPHEMERAL).update();
                         return;
@@ -156,14 +156,13 @@ public class App implements Serializable {
                     break;
 
                 case "updateroles" :
-                    CustomServer server2 = getServer(interaction.getServer().get().getIdAsString());
                     if (interaction.getOptionBooleanValueByName("reset").isPresent() && interaction.getOptionBooleanValueByName("reset").get()) {
-                        server2.deleteAllRoles();
+                        server.deleteAllRoles();
                         System.out.println("deleted all");
                         response.setContent("All personal roles deleted.").setFlags(MessageFlag.EPHEMERAL).update();
                         return;
                     }
-                    server2.updateRoles(interaction.getServer().get(), interaction.getOptionBooleanValueByName("hoisted").orElse(server2.isHoisted()));
+                    server.updateRoles(interaction.getServer().get(), interaction.getOptionBooleanValueByName("hoisted").orElse(server.isHoisted()));
                     response.setContent("Updated").setFlags(MessageFlag.EPHEMERAL).update();
                     break;
 
@@ -233,8 +232,6 @@ public class App implements Serializable {
         out = new ObjectOutputStream(fos);
         out.writeObject(servers);
         out.close();
-
-        System.out.println("data saved");
     }
 
     private static void retrieveData() throws ClassNotFoundException, IOException {
@@ -256,8 +253,6 @@ public class App implements Serializable {
         for (CustomServer server : servers) {
             server.updateServer();
         }
-
-        System.out.println("data updated");
     }
 
 }
