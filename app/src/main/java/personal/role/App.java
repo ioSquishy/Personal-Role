@@ -18,6 +18,7 @@ import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.intent.Intent;
 import org.javacord.api.entity.message.MessageFlag;
+import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.entity.permission.Role;
 import org.javacord.api.entity.permission.RoleUpdater;
 import org.javacord.api.interaction.SlashCommandBuilder;
@@ -115,12 +116,20 @@ public class App implements Serializable {
                 .build())
             .createGlobal(api).join();
 
+        new SlashCommandBuilder()
+            .setName("help")
+            .setDescription("Display command info in more detail.")
+            .setDefaultEnabledForEveryone()
+            .setEnabledInDms(false)
+            .createGlobal(api).join();
+
         api.addSlashCommandCreateListener(event -> {
             SlashCommandInteraction interaction = event.getSlashCommandInteraction();
-            InteractionOriginalResponseUpdater response = interaction.respondLater(true).join();
+            InteractionOriginalResponseUpdater response;
             CustomServer server = getServer(interaction.getServer().get().getIdAsString());
             switch (interaction.getCommandName()) {
                 case "setrole" :
+                    response = interaction.respondLater(true).join();
                     if (!interaction.getUser().getRoles(interaction.getServer().get()).contains(interaction.getServer().get().getRoleById(server.getRequiredRoleId()).get())) {
                         response.setContent("You do not have the required role to use this command!").setFlags(MessageFlag.EPHEMERAL).update();
                         return;
@@ -129,6 +138,11 @@ public class App implements Serializable {
                     //replace role if needed
                     if (!api.getRoleById(personalRole.getRoleId()).isPresent()) {
                         personalRole = server.replaceRole(interaction.getUser().getIdAsString());
+                    }
+                    //check if bot role is above personal role
+                    if (!api.getYourself().canManageRole(api.getRoleById(personalRole.getRoleId()).get())) {
+                        response.setContent("My role has to be above your personal role to update it!\n(Contact a staff member who has the `Manage Roles` permission to move me above your personal role!)").update();
+                        return;
                     }
                     //update role
                     RoleUpdater role = api.getRoleById(personalRole.getRoleId()).get().createUpdater();
@@ -156,6 +170,7 @@ public class App implements Serializable {
                     break;
 
                 case "updateroles" :
+                    response = interaction.respondLater(true).join();
                     if (interaction.getOptionBooleanValueByName("reset").isPresent() && interaction.getOptionBooleanValueByName("reset").get()) {
                         server.deleteAllRoles();
                         System.out.println("deleted all");
@@ -167,6 +182,7 @@ public class App implements Serializable {
                     break;
 
                 case "setrequiredrole" :
+                    response = interaction.respondLater(true).join();
                     Role requiredRole = interaction.getOptionRoleValueByName("role").get();
                     getServer(interaction.getServer().get().getIdAsString()).setRequiredRoleId(requiredRole.getIdAsString());
                     response.setContent("Required role set to: " + requiredRole.getMentionTag()).setFlags(MessageFlag.EPHEMERAL).update();
@@ -174,6 +190,29 @@ public class App implements Serializable {
 
                 case "ping" :
                     interaction.createImmediateResponder().setContent("Pong! `" + api.getLatestGatewayLatency().toMillis() + "ms`\nFeedback/Support Server: https://discord.gg/fCbYCbHE6z").setFlags(MessageFlag.EPHEMERAL).respond();
+                    break;
+
+                case "help" :
+                    EmbedBuilder embed = new EmbedBuilder()
+                        .setTitle("Commands")
+                        .setColor(Color.PINK)
+                        .setDescription(
+                            "**/setrole (name) (color)**\n" + 
+                            "Creates your own personal role that you can change the name and color of at any time if you have the required role to do so. Current required role (set by admins): " + api.getRoleById(server.getRequiredRoleId()).get().getMentionTag() + "\n" +
+                            "If you lose the required role to use this command, your personal role will be deleted." + "\n\n" + 
+
+                            "**/updateroles (hoisted) (reset)**\n" +
+                            "Command only enabled for admins by default that when used will move all current and future personal roles under the role of the bot. **(If you move the bots role lower than already existing personal roles, they wont be moved!)**\n" + 
+                            "If the (hoisted) option is also enabled when this command is used, it will make all personal roles appear seperatly from other roles.\n" + 
+                            "If the (reset) option is enabled, the bot will delete all personal roles it has access too." + "\n\n" + 
+
+                            "**/setrequiredrole (role)**\n" +
+                            "Command only enabled for admins by default that when used will set the required role for users to use the **/setrole** command.\n" + 
+                            "All users who have a personal role that don't have the new required role will lose their personal role." + "\n\n" +
+
+                            "[Support Server](https://discord.gg/fCbYCbHE6z) · [Bot Invite](https://discord.com/api/oauth2/authorize?client_id=999916712046641222&permissions=268436480&scope=bot%20applications.commands)"
+                        );
+                    interaction.createImmediateResponder().addEmbed(embed).respond();
                     break;
             }
         });
