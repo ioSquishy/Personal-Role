@@ -66,7 +66,8 @@ public class CustomServer implements Serializable {
         }
     }
 
-    public void updateRoles(Server server, boolean hoist) {
+    public void updateRoles(boolean hoist) {
+        Server server = App.api.getServerById(serverId).get();
         hoisted = hoist;
         List<Role> roles = server.getRoles();
         List<Role> newList = new ArrayList<Role>();
@@ -100,7 +101,7 @@ public class CustomServer implements Serializable {
         userIds.add(index, Long.parseLong(userId));
         personalRoles.add(index, new PersonalRole(userId, App.api.getServerById(serverId).get().createRoleBuilder().setPermissions(new PermissionsBuilder().build()).create().join().getIdAsString()));
         try {
-            updateRoles(App.api.getServerById(serverId).get(), hoisted);
+            updateRoles(hoisted);
         } catch (Error e) {}
         try {
             App.api.getRoleById(personalRoles.get(index).getRoleId()).get().addUser(App.api.getUserById(userId).get()).join();

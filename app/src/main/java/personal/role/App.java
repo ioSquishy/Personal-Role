@@ -19,6 +19,7 @@ import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.intent.Intent;
 import org.javacord.api.entity.message.MessageFlag;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
+import org.javacord.api.entity.permission.PermissionType;
 import org.javacord.api.entity.permission.Role;
 import org.javacord.api.entity.permission.RoleUpdater;
 import org.javacord.api.interaction.SlashCommandBuilder;
@@ -127,9 +128,21 @@ public class App implements Serializable {
             SlashCommandInteraction interaction = event.getSlashCommandInteraction();
             InteractionOriginalResponseUpdater response;
             CustomServer server = getServer(interaction.getServer().get().getIdAsString());
+            boolean hasPerms = false;
             switch (interaction.getCommandName()) {
                 case "setrole" :
                     response = interaction.respondLater(true).join();
+                    //check if bot has perms
+                    for (Role checkRoles1 : api.getYourself().getRoles(interaction.getServer().get())) {
+                        if (checkRoles1.getAllowedPermissions().contains(PermissionType.MANAGE_ROLES)) {
+                            hasPerms = true;
+                            break;
+                        }
+                    }
+                    if (!hasPerms) {
+                        response.setContent("I need the `Manage Roles` Permission!").update();
+                        return;
+                    }
                     if (!interaction.getUser().getRoles(interaction.getServer().get()).contains(interaction.getServer().get().getRoleById(server.getRequiredRoleId()).get())) {
                         response.setContent("You do not have the required role to use this command!").setFlags(MessageFlag.EPHEMERAL).update();
                         return;
@@ -167,17 +180,28 @@ public class App implements Serializable {
                     role.update().join();
                     //respond
                     response.setContent("Role Updated").setFlags(MessageFlag.EPHEMERAL).update();
+                    server.updateRoles(server.isHoisted());
                     break;
 
                 case "updateroles" :
                     response = interaction.respondLater(true).join();
+                    for (Role checkRoles2 : api.getYourself().getRoles(interaction.getServer().get())) {
+                        if (checkRoles2.getAllowedPermissions().contains(PermissionType.MANAGE_ROLES)) {
+                            hasPerms = true;
+                            break;
+                        }
+                    }
+                    if (!hasPerms) {
+                        response.setContent("I need the `Manage Roles` Permission!").update();
+                        return;
+                    }
                     if (interaction.getOptionBooleanValueByName("reset").isPresent() && interaction.getOptionBooleanValueByName("reset").get()) {
                         server.deleteAllRoles();
                         System.out.println("deleted all");
                         response.setContent("All personal roles deleted.").setFlags(MessageFlag.EPHEMERAL).update();
                         return;
                     }
-                    server.updateRoles(interaction.getServer().get(), interaction.getOptionBooleanValueByName("hoisted").orElse(server.isHoisted()));
+                    server.updateRoles(interaction.getOptionBooleanValueByName("hoisted").orElse(server.isHoisted()));
                     response.setContent("Updated").setFlags(MessageFlag.EPHEMERAL).update();
                     break;
 
@@ -198,17 +222,17 @@ public class App implements Serializable {
                         .setColor(Color.PINK)
                         .setDescription(
                             "**/setrole (name) (color)**\n" + 
-                            "Creates your own personal role that you can change the name and color of at any time if you have the required role to do so. Current required role (set by admins): " + api.getRoleById(server.getRequiredRoleId()).get().getMentionTag() + "\n" +
-                            "If you lose the required role to use this command, your personal role will be deleted." + "\n\n" + 
+                            "> Creates your own personal role that you can change the name and color of at any time if you have the required role to do so. Current required role (set by admins): " + api.getRoleById(server.getRequiredRoleId()).get().getMentionTag() + "\n" +
+                            "> If you lose the required role to use this command, your personal role will be deleted." + "\n\n" + 
 
                             "**/updateroles (hoisted) (reset)**\n" +
-                            "Command only enabled for admins by default that when used will move all current and future personal roles under the role of the bot. **(If you move the bots role lower than already existing personal roles, they wont be moved!)**\n" + 
-                            "If the (hoisted) option is also enabled when this command is used, it will make all personal roles appear seperatly from other roles.\n" + 
-                            "If the (reset) option is enabled, the bot will delete all personal roles it has access too." + "\n\n" + 
+                            "> Command only enabled for admins by default that when used will move all current and future personal roles under the role of the bot. **(If you move the bots role lower than already existing personal roles, they wont be moved!)**\n" + 
+                            "> If the (hoisted) option is enabled, it will make all personal roles appear seperatly from other roles.\n" + 
+                            "> If the (reset) option is enabled, the bot will delete all personal roles it has access too." + "\n\n" + 
 
                             "**/setrequiredrole (role)**\n" +
-                            "Command only enabled for admins by default that when used will set the required role for users to use the **/setrole** command.\n" + 
-                            "All users who have a personal role that don't have the new required role will lose their personal role." + "\n\n" +
+                            "> Command only enabled for admins by default that when used will set the required role for users to use the **/setrole** command.\n" + 
+                            "> All users who have a personal role that don't have the new required role will lose their personal role." + "\n\n" +
 
                             "[Support Server](https://discord.gg/fCbYCbHE6z) · [Bot Invite](https://discord.com/api/oauth2/authorize?client_id=999916712046641222&permissions=268436480&scope=bot%20applications.commands)"
                         );
